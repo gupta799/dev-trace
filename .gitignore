@@ -9,3 +9,9 @@ dist/
 *.egg-info/
 uv.lock
 
+# Common local ML/output artifacts
+model/
+synthetic/
+synthetic*.csv
+dataset*.csv
+scores*.csv
