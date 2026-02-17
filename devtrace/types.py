@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 
 
-@dataclass(slots=True)
-class CommandMetrics:
+class CommandMetrics(BaseModel):
     """Captured metrics for a single command execution."""
+
+    model_config = ConfigDict(extra="forbid")
 
     command_hash: str
     duration_ms: int
@@ -16,9 +17,10 @@ class CommandMetrics:
     lines_deleted: int
 
 
-@dataclass(slots=True)
-class ModelPrediction:
+class ModelPrediction(BaseModel):
     """Model inference output for a single command event."""
+
+    model_config = ConfigDict(extra="forbid")
 
     predicted_productivity: float
     top_contribution_feature: str
