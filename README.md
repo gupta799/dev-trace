@@ -137,6 +137,23 @@ Scoring output includes:
 - `top_contribution_feature`
 - `top_contribution_value`
 
+### 4. Improve model over time (baseline -> auto-label -> retrain)
+
+Recommended loop:
+
+1. Train baseline model from synthetic data.
+2. Run `devtrace run` in real workflows so new events are auto-scored.
+3. Build retraining datasets by using historical telemetry plus label columns:
+   - primary: human/approved outcome labels when available
+   - fallback: model-generated `predicted_productivity` as pseudo-labels
+4. Retrain and ship a new model artifact version.
+5. Repeat on a fixed cadence (weekly/monthly).
+
+Practical guidance:
+
+- Synthetic labels are for bootstrapping.
+- Auto labels help scale quickly, but quality improves fastest when blended with reviewed labels and real business outcomes.
+
 ## Automatic scoring at capture time
 
 - `devtrace run` auto-scores new events if `<--path>/model-xgb/model.json` exists.
@@ -153,11 +170,12 @@ python -m devtrace.cli events --path .devtrace --limit 5
 ## Enterprise rollout pattern
 
 1. Capture events locally per engineer/agent workspace.
-2. Train on historical datasets.
-3. Approve model artifacts centrally.
-4. Distribute active model to teams.
-5. Auto-score incoming events.
-6. Sync to central analytics for reporting, governance, and retraining.
+2. Train baseline model using synthetic bootstrap data.
+3. Auto-score incoming events to generate operating-time signals.
+4. Build retraining sets with approved labels and/or pseudo-labels.
+5. Approve model artifacts centrally.
+6. Distribute active model to teams.
+7. Sync to central analytics for reporting, governance, and continuous retraining.
 
 ## Security and governance notes
 
@@ -181,12 +199,14 @@ Use `.vscode/launch.json` profiles and set breakpoints in:
 - `devtrace/runner.py`
 - `devtrace/git_metrics.py`
 - `devtrace/storage.py`
-- `devtrace/ml.py`
+- `devtrace/ml/training.py`
+- `devtrace/ml/scoring.py`
+- `devtrace/ml/synthetic.py`
 
 ## Runtime notes
 
 - macOS users need `libomp` for XGBoost runtime (`brew install libomp`).
-- Current label strategy supports explicit `productivity_label` and fallback weak labeling.
+- Training expects explicit `productivity_label` values (human labels or pseudo-labels).
 
 ## Release docs
 

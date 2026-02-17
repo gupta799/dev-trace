@@ -10,6 +10,38 @@ from typing import Any
 from devtrace.types import CommandMetrics, ModelPrediction
 from devtrace.utils import new_id, now_ts
 
+_EVENT_COLUMNS = [
+    "id",
+    "agent_id",
+    "executed_at",
+    "command_hash",
+    "duration_ms",
+    "exit_code",
+    "timed_out",
+    "files_touched_count",
+    "lines_added",
+    "lines_deleted",
+    "predicted_productivity",
+    "top_contribution_feature",
+    "top_contribution_value",
+    "model_ref",
+]
+
+_EXPORT_COLUMNS = [
+    "command_hash",
+    "duration_ms",
+    "exit_code",
+    "timed_out",
+    "files_touched_count",
+    "lines_added",
+    "lines_deleted",
+]
+
+_PENDING_SYNC_COLUMNS = [
+    *_EVENT_COLUMNS,
+    "attempts",
+]
+
 
 class LocalStore:
     """SQLite-backed local storage for command telemetry."""
@@ -127,98 +159,34 @@ class LocalStore:
 
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
-
-        keys = [
-            "id",
-            "agent_id",
-            "executed_at",
-            "command_hash",
-            "duration_ms",
-            "exit_code",
-            "timed_out",
-            "files_touched_count",
-            "lines_added",
-            "lines_deleted",
-            "predicted_productivity",
-            "top_contribution_feature",
-            "top_contribution_value",
-            "model_ref",
-        ]
-        result: list[dict[str, Any]] = []
-        for row in rows:
-            record = dict(zip(keys, row, strict=True))
-            record["timed_out"] = bool(record["timed_out"])
-            result.append(record)
-        return result
+        return self._records_from_rows(rows, columns=_EVENT_COLUMNS)
 
     def export_events(self, output_path: Path, fmt: str) -> int:
         rows = self.list_command_events()
+        payload = [self._export_payload(row) for row in rows]
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         if fmt == "csv":
             with output_path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.DictWriter(
-                    handle,
-                    fieldnames=[
-                        "command_hash",
-                        "duration_ms",
-                        "exit_code",
-                        "timed_out",
-                        "files_touched_count",
-                        "lines_added",
-                        "lines_deleted",
-                    ],
-                )
+                writer = csv.DictWriter(handle, fieldnames=_EXPORT_COLUMNS)
                 writer.writeheader()
-                for row in rows:
-                    writer.writerow(
-                        {
-                            "command_hash": row["command_hash"],
-                            "duration_ms": row["duration_ms"],
-                            "exit_code": row["exit_code"],
-                            "timed_out": int(row["timed_out"]),
-                            "files_touched_count": row["files_touched_count"],
-                            "lines_added": row["lines_added"],
-                            "lines_deleted": row["lines_deleted"],
-                        }
-                    )
-            return len(rows)
+                writer.writerows(payload)
+            return len(payload)
 
         if fmt == "parquet":
             if importlib.util.find_spec("pandas") is None or importlib.util.find_spec("pyarrow") is None:
                 raise RuntimeError("parquet export requires pandas and pyarrow")
             import pandas as pd
 
-            payload = [
-                {
-                    "command_hash": row["command_hash"],
-                    "duration_ms": row["duration_ms"],
-                    "exit_code": row["exit_code"],
-                    "timed_out": int(row["timed_out"]),
-                    "files_touched_count": row["files_touched_count"],
-                    "lines_added": row["lines_added"],
-                    "lines_deleted": row["lines_deleted"],
-                }
-                for row in rows
-            ]
             frame = pd.DataFrame(payload)
             frame.to_parquet(output_path, index=False)
-            return len(rows)
+            return len(payload)
 
         if fmt == "jsonl":
             with output_path.open("w", encoding="utf-8") as handle:
-                for row in rows:
-                    payload = {
-                        "command_hash": row["command_hash"],
-                        "duration_ms": row["duration_ms"],
-                        "exit_code": row["exit_code"],
-                        "timed_out": int(row["timed_out"]),
-                        "files_touched_count": row["files_touched_count"],
-                        "lines_added": row["lines_added"],
-                        "lines_deleted": row["lines_deleted"],
-                    }
-                    handle.write(json.dumps(payload) + "\n")
-            return len(rows)
+                for event_payload in payload:
+                    handle.write(json.dumps(event_payload) + "\n")
+            return len(payload)
 
         raise ValueError(f"unsupported format: {fmt}")
 
@@ -250,29 +218,7 @@ class LocalStore:
                 """,
                 (batch_size,),
             ).fetchall()
-
-        result = []
-        for row in rows:
-            result.append(
-                {
-                    "id": row[0],
-                    "agent_id": row[1],
-                    "executed_at": row[2],
-                    "command_hash": row[3],
-                    "duration_ms": row[4],
-                    "exit_code": row[5],
-                    "timed_out": bool(row[6]),
-                    "files_touched_count": row[7],
-                    "lines_added": row[8],
-                    "lines_deleted": row[9],
-                    "predicted_productivity": row[10],
-                    "top_contribution_feature": row[11],
-                    "top_contribution_value": row[12],
-                    "model_ref": row[13],
-                    "attempts": row[14],
-                }
-            )
-        return result
+        return self._records_from_rows(rows, columns=_PENDING_SYNC_COLUMNS)
 
     def _ensure_command_event_columns(self, conn: sqlite3.Connection) -> None:
         existing = {
@@ -287,6 +233,30 @@ class LocalStore:
         ]:
             if column_name not in existing:
                 conn.execute(f"ALTER TABLE command_events ADD COLUMN {column_name} {column_def}")
+
+    def _records_from_rows(
+        self,
+        rows: list[tuple[Any, ...]],
+        *,
+        columns: list[str],
+    ) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            record = dict(zip(columns, row, strict=True))
+            record["timed_out"] = bool(record["timed_out"])
+            result.append(record)
+        return result
+
+    def _export_payload(self, row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "command_hash": row["command_hash"],
+            "duration_ms": row["duration_ms"],
+            "exit_code": row["exit_code"],
+            "timed_out": int(row["timed_out"]),
+            "files_touched_count": row["files_touched_count"],
+            "lines_added": row["lines_added"],
+            "lines_deleted": row["lines_deleted"],
+        }
 
     def mark_synced(self, event_ids: list[str]) -> None:
         if not event_ids:

@@ -9,13 +9,14 @@ from rich.table import Table
 
 from devtrace.ml import (
     generate_synthetic_dataset,
-    score_single_event,
+    score_command_metrics,
     score_xgboost,
     train_xgboost,
     xgboost_runtime_available,
 )
 from devtrace.runner import run_command
 from devtrace.storage import LocalStore
+from devtrace.types import CommandMetrics, ModelPrediction
 
 app = typer.Typer(help="DevTrace CLI")
 ml_app = typer.Typer(help="XGBoost training and scoring")
@@ -26,6 +27,31 @@ def _store(path: Path) -> LocalStore:
     store = LocalStore(path)
     store.ensure_storage()
     return store
+
+
+def _predict_if_model_available(
+    metrics: CommandMetrics,
+    *,
+    path: Path,
+    model_dir: Path | None,
+) -> ModelPrediction | None:
+    resolved_model_dir = model_dir if model_dir is not None else path / "model-xgb"
+    model_path = resolved_model_dir / "model.json"
+    if not model_path.exists() or not xgboost_runtime_available():
+        return None
+    return score_command_metrics(model_dir=resolved_model_dir, metrics=metrics)
+
+
+def _optional_float(value: object) -> str:
+    if value is None:
+        return ""
+    return f"{float(value):.4f}"
+
+
+def _optional_text(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value)
 
 
 @app.command()
@@ -57,22 +83,7 @@ def run_cmd(
 
     store = _store(path)
     metrics = run_command(command=command, repo_path=repo, timeout_s=timeout)
-    resolved_model_dir = model_dir if model_dir is not None else path / "model-xgb"
-    prediction = None
-    model_path = resolved_model_dir / "model.json"
-    if model_path.exists() and xgboost_runtime_available():
-        prediction = score_single_event(
-            model_dir=resolved_model_dir,
-            row={
-                "command_hash": metrics.command_hash,
-                "duration_ms": str(metrics.duration_ms),
-                "exit_code": str(metrics.exit_code),
-                "timed_out": str(int(metrics.timed_out)),
-                "files_touched_count": str(metrics.files_touched_count),
-                "lines_added": str(metrics.lines_added),
-                "lines_deleted": str(metrics.lines_deleted),
-            },
-        )
+    prediction = _predict_if_model_available(metrics, path=path, model_dir=model_dir)
     event_id = store.insert_command_event(agent_id=agent, metrics=metrics, prediction=prediction)
 
     if event_id is None:
@@ -141,10 +152,10 @@ def events(
             str(row["files_touched_count"]),
             str(row["lines_added"]),
             str(row["lines_deleted"]),
-            "" if row["predicted_productivity"] is None else f"{float(row['predicted_productivity']):.4f}",
-            "" if row["top_contribution_feature"] is None else str(row["top_contribution_feature"]),
-            "" if row["top_contribution_value"] is None else f"{float(row['top_contribution_value']):.4f}",
-            "" if row["model_ref"] is None else str(row["model_ref"]),
+            _optional_float(row["predicted_productivity"]),
+            _optional_text(row["top_contribution_feature"]),
+            _optional_float(row["top_contribution_value"]),
+            _optional_text(row["model_ref"]),
         )
     console.print(table)
 

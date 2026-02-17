@@ -31,6 +31,39 @@ def test_generate_synthetic_dataset_creates_rows(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not HAS_XGBOOST, reason="xgboost not installed")
+def test_train_requires_productivity_label(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset.csv"
+    with dataset.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "command_hash",
+                "duration_ms",
+                "exit_code",
+                "timed_out",
+                "files_touched_count",
+                "lines_added",
+                "lines_deleted",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "command_hash": "abc",
+                "duration_ms": 50,
+                "exit_code": 0,
+                "timed_out": 0,
+                "files_touched_count": 1,
+                "lines_added": 1,
+                "lines_deleted": 0,
+            }
+        )
+
+    with pytest.raises(ValueError, match="productivity_label is required for training"):
+        train_xgboost(dataset_path=dataset, output_dir=tmp_path / "model")
+
+
+@pytest.mark.skipif(not HAS_XGBOOST, reason="xgboost not installed")
 def test_train_and_score_pipeline(tmp_path: Path) -> None:
     dataset = tmp_path / "dataset.csv"
     generate_synthetic_dataset(output_path=dataset, rows=300, seed=13)
