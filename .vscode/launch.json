@@ -1,0 +1,75 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DevTrace: init (.devtrace-test)",
+      "type": "python",
+      "request": "launch",
+      "module": "devtrace.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "init",
+        "--path",
+        ".devtrace-test"
+      ]
+    },
+    {
+      "name": "DevTrace: run capture (echo hello)",
+      "type": "python",
+      "request": "launch",
+      "module": "devtrace.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "run",
+        "--agent",
+        "codex",
+        "--path",
+        ".devtrace-test",
+        "--repo",
+        ".",
+        "--",
+        "sh",
+        "-lc",
+        "echo hello"
+      ]
+    },
+    {
+      "name": "DevTrace: events (limit 5)",
+      "type": "python",
+      "request": "launch",
+      "module": "devtrace.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "events",
+        "--path",
+        ".devtrace-test",
+        "--limit",
+        "5"
+      ]
+    },
+    {
+      "name": "DevTrace: export csv",
+      "type": "python",
+      "request": "launch",
+      "module": "devtrace.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "export",
+        "--path",
+        ".devtrace-test",
+        "--format",
+        "csv",
+        "--out",
+        "/tmp/devtrace-current.csv"
+      ]
+    }
+  ]
+}
