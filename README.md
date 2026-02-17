@@ -87,7 +87,7 @@ pip install -e .[dev,ml]
 - `pipx install devtrace`
 - `pip install devtrace`
 
-Homebrew release template: `packaging/homebrew/devtrace.rb`.
+Homebrew formula (tap-ready): `Formula/devtrace.rb`.
 
 ## Quickstart
 
@@ -210,7 +210,7 @@ python -m devtrace.cli events --path .devtrace --limit 5
 - `tests/`: storage, git metrics, runner, and ML tests.
 - `docs/assets/brand/`: logo, banner, and pipeline visuals for branding.
 - `docs/release.md`: release and publishing guide.
-- `packaging/homebrew/devtrace.rb`: brew formula template.
+- `Formula/devtrace.rb`: Homebrew formula for tap installs.
 
 ## VS Code debugging
 

@@ -22,12 +22,13 @@ Steps:
 
 Homebrew formulas are Ruby files (`.rb`).
 
-To support `brew install devtrace`:
-1. Create a tap repo, e.g. `jaiydevgupta/homebrew-tap`.
-2. Add `Formula/devtrace.rb` from `packaging/homebrew/devtrace.rb`.
-3. Update formula `url` and `sha256` to match the PyPI sdist of the released version.
-4. Users install with:
-   - `brew tap jaiydevgupta/tap`
+This repository now contains a tap-ready formula at `Formula/devtrace.rb`.
+
+To publish and install:
+1. Keep `Formula/devtrace.rb` updated with the latest release tag URL and sha256.
+2. Push formula changes to `main`.
+3. Users install with:
+   - `brew tap gupta799/dev-trace`
    - `brew install devtrace`
 
 ## 4. About pipx and pixi
