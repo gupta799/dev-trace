@@ -42,6 +42,13 @@ def run_cmd(
     metrics = run_command(command=command, repo_path=repo, timeout_s=timeout)
     event_id = store.insert_command_event(agent_id=agent, metrics=metrics)
 
+    if event_id is None:
+        console.print(
+            "Skipped telemetry event: no file changes detected "
+            "(files_touched_count=0, lines_added=0, lines_deleted=0)."
+        )
+        raise typer.Exit(code=metrics.exit_code)
+
     table = Table(title="Captured Metrics")
     table.add_column("field")
     table.add_column("value")

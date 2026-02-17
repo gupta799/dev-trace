@@ -56,3 +56,24 @@ def test_export_csv_contains_minimal_columns(tmp_path: Path) -> None:
         "files_touched_count,lines_added,lines_deleted"
     )
     assert "xyz,40,1,1,3,4,1" in content[1]
+
+
+def test_insert_skips_zero_diff_snapshot(tmp_path: Path) -> None:
+    store = LocalStore(tmp_path / ".devtrace")
+    store.ensure_storage()
+
+    event_id = store.insert_command_event(
+        agent_id="agent-1",
+        metrics=CommandMetrics(
+            command_hash="noop",
+            duration_ms=5,
+            exit_code=0,
+            timed_out=False,
+            files_touched_count=0,
+            lines_added=0,
+            lines_deleted=0,
+        ),
+    )
+
+    assert event_id is None
+    assert store.list_command_events() == []

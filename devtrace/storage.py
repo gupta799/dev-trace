@@ -51,7 +51,14 @@ class LocalStore:
             )
             conn.commit()
 
-    def insert_command_event(self, agent_id: str | None, metrics: CommandMetrics) -> str:
+    def insert_command_event(self, agent_id: str | None, metrics: CommandMetrics) -> str | None:
+        if (
+            metrics.files_touched_count == 0
+            and metrics.lines_added == 0
+            and metrics.lines_deleted == 0
+        ):
+            return None
+
         event_id = new_id("evt")
         with self._connect() as conn:
             conn.execute(
