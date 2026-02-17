@@ -18,6 +18,7 @@
 - Modules use snake_case; classes are PascalCase; CLI commands and options stay kebab-case.
 - Keep functions short and single-purpose; prefer pure helpers in `devtrace/utils.py`.
 - Docstrings: concise summary line + argument notes where behavior is non-obvious.
+- Avoid `try/except` around imports. Check dependency availability explicitly (for example with `importlib.util.find_spec`) before direct imports.
 
 ## Testing Guidelines
 - Use `pytest` with descriptive test names: `test_<unit_under_test>_<expectation>`.
