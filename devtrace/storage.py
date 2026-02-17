@@ -7,8 +7,40 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from devtrace.types import CommandMetrics
+from devtrace.types import CommandMetrics, ModelPrediction
 from devtrace.utils import new_id, now_ts
+
+_EVENT_COLUMNS = [
+    "id",
+    "agent_id",
+    "executed_at",
+    "command_hash",
+    "duration_ms",
+    "exit_code",
+    "timed_out",
+    "files_touched_count",
+    "lines_added",
+    "lines_deleted",
+    "predicted_productivity",
+    "top_contribution_feature",
+    "top_contribution_value",
+    "model_ref",
+]
+
+_EXPORT_COLUMNS = [
+    "command_hash",
+    "duration_ms",
+    "exit_code",
+    "timed_out",
+    "files_touched_count",
+    "lines_added",
+    "lines_deleted",
+]
+
+_PENDING_SYNC_COLUMNS = [
+    *_EVENT_COLUMNS,
+    "attempts",
+]
 
 
 class LocalStore:
@@ -33,10 +65,15 @@ class LocalStore:
                     timed_out INTEGER NOT NULL,
                     files_touched_count INTEGER NOT NULL,
                     lines_added INTEGER NOT NULL,
-                    lines_deleted INTEGER NOT NULL
+                    lines_deleted INTEGER NOT NULL,
+                    predicted_productivity REAL,
+                    top_contribution_feature TEXT,
+                    top_contribution_value REAL,
+                    model_ref TEXT
                 )
                 """
             )
+            self._ensure_command_event_columns(conn)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS sync_queue (
@@ -51,15 +88,28 @@ class LocalStore:
             )
             conn.commit()
 
-    def insert_command_event(self, agent_id: str | None, metrics: CommandMetrics) -> str:
+    def insert_command_event(
+        self,
+        agent_id: str | None,
+        metrics: CommandMetrics,
+        prediction: ModelPrediction | None = None,
+    ) -> str | None:
+        if (
+            metrics.files_touched_count == 0
+            and metrics.lines_added == 0
+            and metrics.lines_deleted == 0
+        ):
+            return None
+
         event_id = new_id("evt")
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO command_events (
                     id, agent_id, executed_at, command_hash, duration_ms, exit_code, timed_out,
-                    files_touched_count, lines_added, lines_deleted
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    files_touched_count, lines_added, lines_deleted,
+                    predicted_productivity, top_contribution_feature, top_contribution_value, model_ref
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -72,6 +122,10 @@ class LocalStore:
                     metrics.files_touched_count,
                     metrics.lines_added,
                     metrics.lines_deleted,
+                    prediction.predicted_productivity if prediction else None,
+                    prediction.top_contribution_feature if prediction else None,
+                    prediction.top_contribution_value if prediction else None,
+                    prediction.model_ref if prediction else None,
                 ),
             )
             conn.execute("INSERT INTO sync_queue (event_id, status) VALUES (?, 'pending')", (event_id,))
@@ -90,7 +144,11 @@ class LocalStore:
                 timed_out,
                 files_touched_count,
                 lines_added,
-                lines_deleted
+                lines_deleted,
+                predicted_productivity,
+                top_contribution_feature,
+                top_contribution_value,
+                model_ref
             FROM command_events
             ORDER BY executed_at ASC
         """
@@ -101,94 +159,34 @@ class LocalStore:
 
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
-
-        keys = [
-            "id",
-            "agent_id",
-            "executed_at",
-            "command_hash",
-            "duration_ms",
-            "exit_code",
-            "timed_out",
-            "files_touched_count",
-            "lines_added",
-            "lines_deleted",
-        ]
-        result: list[dict[str, Any]] = []
-        for row in rows:
-            record = dict(zip(keys, row, strict=True))
-            record["timed_out"] = bool(record["timed_out"])
-            result.append(record)
-        return result
+        return self._records_from_rows(rows, columns=_EVENT_COLUMNS)
 
     def export_events(self, output_path: Path, fmt: str) -> int:
         rows = self.list_command_events()
+        payload = [self._export_payload(row) for row in rows]
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         if fmt == "csv":
             with output_path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.DictWriter(
-                    handle,
-                    fieldnames=[
-                        "command_hash",
-                        "duration_ms",
-                        "exit_code",
-                        "timed_out",
-                        "files_touched_count",
-                        "lines_added",
-                        "lines_deleted",
-                    ],
-                )
+                writer = csv.DictWriter(handle, fieldnames=_EXPORT_COLUMNS)
                 writer.writeheader()
-                for row in rows:
-                    writer.writerow(
-                        {
-                            "command_hash": row["command_hash"],
-                            "duration_ms": row["duration_ms"],
-                            "exit_code": row["exit_code"],
-                            "timed_out": int(row["timed_out"]),
-                            "files_touched_count": row["files_touched_count"],
-                            "lines_added": row["lines_added"],
-                            "lines_deleted": row["lines_deleted"],
-                        }
-                    )
-            return len(rows)
+                writer.writerows(payload)
+            return len(payload)
 
         if fmt == "parquet":
             if importlib.util.find_spec("pandas") is None or importlib.util.find_spec("pyarrow") is None:
                 raise RuntimeError("parquet export requires pandas and pyarrow")
             import pandas as pd
 
-            payload = [
-                {
-                    "command_hash": row["command_hash"],
-                    "duration_ms": row["duration_ms"],
-                    "exit_code": row["exit_code"],
-                    "timed_out": int(row["timed_out"]),
-                    "files_touched_count": row["files_touched_count"],
-                    "lines_added": row["lines_added"],
-                    "lines_deleted": row["lines_deleted"],
-                }
-                for row in rows
-            ]
             frame = pd.DataFrame(payload)
             frame.to_parquet(output_path, index=False)
-            return len(rows)
+            return len(payload)
 
         if fmt == "jsonl":
             with output_path.open("w", encoding="utf-8") as handle:
-                for row in rows:
-                    payload = {
-                        "command_hash": row["command_hash"],
-                        "duration_ms": row["duration_ms"],
-                        "exit_code": row["exit_code"],
-                        "timed_out": int(row["timed_out"]),
-                        "files_touched_count": row["files_touched_count"],
-                        "lines_added": row["lines_added"],
-                        "lines_deleted": row["lines_deleted"],
-                    }
-                    handle.write(json.dumps(payload) + "\n")
-            return len(rows)
+                for event_payload in payload:
+                    handle.write(json.dumps(event_payload) + "\n")
+            return len(payload)
 
         raise ValueError(f"unsupported format: {fmt}")
 
@@ -207,6 +205,10 @@ class LocalStore:
                     ce.files_touched_count,
                     ce.lines_added,
                     ce.lines_deleted,
+                    ce.predicted_productivity,
+                    ce.top_contribution_feature,
+                    ce.top_contribution_value,
+                    ce.model_ref,
                     sq.attempts
                 FROM command_events ce
                 JOIN sync_queue sq ON sq.event_id = ce.id
@@ -216,25 +218,45 @@ class LocalStore:
                 """,
                 (batch_size,),
             ).fetchall()
+        return self._records_from_rows(rows, columns=_PENDING_SYNC_COLUMNS)
 
-        result = []
+    def _ensure_command_event_columns(self, conn: sqlite3.Connection) -> None:
+        existing = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(command_events)").fetchall()
+        }
+        for column_name, column_def in [
+            ("predicted_productivity", "REAL"),
+            ("top_contribution_feature", "TEXT"),
+            ("top_contribution_value", "REAL"),
+            ("model_ref", "TEXT"),
+        ]:
+            if column_name not in existing:
+                conn.execute(f"ALTER TABLE command_events ADD COLUMN {column_name} {column_def}")
+
+    def _records_from_rows(
+        self,
+        rows: list[tuple[Any, ...]],
+        *,
+        columns: list[str],
+    ) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
         for row in rows:
-            result.append(
-                {
-                    "id": row[0],
-                    "agent_id": row[1],
-                    "executed_at": row[2],
-                    "command_hash": row[3],
-                    "duration_ms": row[4],
-                    "exit_code": row[5],
-                    "timed_out": bool(row[6]),
-                    "files_touched_count": row[7],
-                    "lines_added": row[8],
-                    "lines_deleted": row[9],
-                    "attempts": row[10],
-                }
-            )
+            record = dict(zip(columns, row, strict=True))
+            record["timed_out"] = bool(record["timed_out"])
+            result.append(record)
         return result
+
+    def _export_payload(self, row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "command_hash": row["command_hash"],
+            "duration_ms": row["duration_ms"],
+            "exit_code": row["exit_code"],
+            "timed_out": int(row["timed_out"]),
+            "files_touched_count": row["files_touched_count"],
+            "lines_added": row["lines_added"],
+            "lines_deleted": row["lines_deleted"],
+        }
 
     def mark_synced(self, event_ids: list[str]) -> None:
         if not event_ids:
