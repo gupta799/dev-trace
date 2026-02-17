@@ -8,9 +8,10 @@ Prereqs:
 
 Steps:
 1. Bump `version` in `pyproject.toml`.
-2. Create git tag and GitHub release.
-3. Release trigger runs `.github/workflows/publish-pypi.yml`.
-4. Verify package appears at `https://pypi.org/project/devtrace/`.
+2. Create and push git tag (for example `v0.2.0`).
+3. Tag push trigger runs `.github/workflows/publish-pypi.yml`.
+4. Optionally create a GitHub release for release notes.
+5. Verify package appears at `https://pypi.org/project/devtrace/`.
 
 ## 2. Recommended install commands
 

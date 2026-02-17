@@ -1,6 +1,6 @@
 [project]
 name = "devtrace"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first provenance tracker for developer and agent activity"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -44,9 +44,9 @@ data = [
 devtrace = "devtrace.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/jaiydevgupta/dev-trace"
-Repository = "https://github.com/jaiydevgupta/dev-trace"
-Issues = "https://github.com/jaiydevgupta/dev-trace/issues"
+Homepage = "https://github.com/gupta799/dev-trace"
+Repository = "https://github.com/gupta799/dev-trace"
+Issues = "https://github.com/gupta799/dev-trace/issues"
 
 [tool.ruff]
 line-length = 100
