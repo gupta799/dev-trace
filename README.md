@@ -1,5 +1,21 @@
 # DevTrace
 
+<p align="center">
+  <img src="docs/assets/brand/devtrace-logo.svg" alt="DevTrace Logo" width="112" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/brand/devtrace-banner.svg" alt="DevTrace Banner" width="980" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/gupta799/dev-trace/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/gupta799/dev-trace/ci.yml?branch=main&label=CI"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-0A66C2">
+  <img alt="Model" src="https://img.shields.io/badge/model-XGBoost%20Decision%20Trees-1F6FEB">
+  <img alt="Architecture" src="https://img.shields.io/badge/architecture-local--first-0E8A16">
+  <img alt="Use Case" src="https://img.shields.io/badge/use%20case-engineering%20intelligence-5C2D91">
+</p>
+
 DevTrace gives engineering organizations a practical way to measure and improve developer and CLI-agent execution quality.
 
 It captures command-level telemetry, builds model-ready datasets, and applies XGBoost scoring to every new event so teams can move from intuition to measurable execution intelligence.
@@ -18,6 +34,10 @@ It captures command-level telemetry, builds model-ready datasets, and applies XG
 - Exports clean datasets for ML pipelines.
 - Trains and serves XGBoost model artifacts.
 - Auto-scores new command events with top feature contribution signals.
+
+<p align="center">
+  <img src="docs/assets/brand/devtrace-pipeline.svg" alt="DevTrace Pipeline" width="980" />
+</p>
 
 ## Feature status
 
@@ -188,6 +208,7 @@ python -m devtrace.cli events --path .devtrace --limit 5
 
 - `devtrace/`: CLI, storage, runner, git metrics, ML, sync/server modules.
 - `tests/`: storage, git metrics, runner, and ML tests.
+- `docs/assets/brand/`: logo, banner, and pipeline visuals for branding.
 - `docs/release.md`: release and publishing guide.
 - `packaging/homebrew/devtrace.rb`: brew formula template.
 

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 440" width="1440" height="440" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08192F"/>
+      <stop offset="1" stop-color="#0E3A66"/>
+    </linearGradient>
+    <linearGradient id="line" x1="880" y1="140" x2="1320" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/>
+      <stop offset="1" stop-color="#5DFFAF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1440" height="440" rx="28" fill="url(#bg)"/>
+  <rect x="28" y="28" width="1384" height="384" rx="20" stroke="#9FC8EB" stroke-opacity="0.24" stroke-width="2"/>
+
+  <rect x="86" y="84" width="700" height="272" rx="22" fill="#112C4F" fill-opacity="0.84"/>
+
+  <text x="134" y="188" fill="#EDF6FF" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700">DevTrace</text>
+  <text x="134" y="236" fill="#B9D8F2" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="600">Engineering Execution Intelligence</text>
+  <text x="134" y="286" fill="#C7E0F5" font-family="Arial, Helvetica, sans-serif" font-size="22">Capture telemetry. Train XGBoost. Score every run.</text>
+
+  <path d="M870 288H958L1000 190L1050 336L1114 164L1174 278H1328" stroke="url(#line)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="870" cy="288" r="8" fill="#5DFFAF"/>
+  <circle cx="1328" cy="278" r="8" fill="#00D4FF"/>
+
+  <circle cx="1214" cy="108" r="46" fill="#2B6A96" fill-opacity="0.42"/>
+  <circle cx="1294" cy="142" r="26" fill="#3D8CB5" fill-opacity="0.46"/>
+  <circle cx="1354" cy="102" r="18" fill="#57B0CE" fill-opacity="0.44"/>
+</svg>
